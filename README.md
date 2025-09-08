@@ -7,7 +7,7 @@ Static Version: Open directly in the browser, no server or modules needed.
 
 Module Version: Use import/export (ES Modules), requires a local server or bundler.
 
-
+<br>
 
 ## Quick Start
 ```javascript
@@ -22,6 +22,7 @@ const app = Column(() => [
     Button("Incrementar", {
       onClick: () => {
         state.count++;
+        // document.querySelector('#element').rebuild()
         app.rebuild(); 
       }
     }),
@@ -29,6 +30,7 @@ const app = Column(() => [
     Button("Resetar", {
       onClick: () => {
         state.count = 0;
+        // document.querySelector('#element').rebuild()
         app.rebuild();
       }
     })
@@ -39,11 +41,28 @@ const root = document.getElementById('root');
 root.appendChild(app);
 ```
 
-# MiniFlutterJS 
+<br>
 
-Este repositório contém um **MiniFlutterJS** inspirado na estrutura de widgets do Flutter e que aceita Tailwind como estilo, com suporte a **rebuildable elements**. Ele permite criar interfaces dinâmicas de forma declarativa, usando widgets como `Column`, `Row`, `Text`, `Button`, `ListView`, `Container` e outros.
+### This is a rebuild widget
+```javascript
+Text(() => `Valor atual: ${state.count}`, { className: "text-lg" })
+```
 
-O repositório oferece **duas versões de uso**:
+### This is not rebuild widget (Without function)
+```javascript
+Text(`Valor atual: ${state.count}`, { className: "text-lg" })
+```
 
-1. **Versão estática (Static)**: abrir direto no navegador, sem precisar de servidor ou módulos.
-2. **Versão modular (Module)**: usar import/export (ES Modules), requer servidor local ou bundler.
+### This how you get and rebuild the widget
+```javascript
+// Text(() => `Valor atual: ${state.count}`, { id: "textCount", className: "text-lg" })
+
+document.querySelector('#textCloud').rebuild()
+```
+
+### Tailwind CSS use className
+```
+{ id: "textCount", className: "text-lg" }
+```
+<br>
+

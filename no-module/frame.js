@@ -33,7 +33,7 @@ function normalizeBuilder(input) {
 // ======================= WIDGETS =======================
 
 const Text = (builderOrValue, options = {}) => {
-  const el = document.createElement("span");
+  const el = document.createElement("div");
   return makeRebuildable(
     el,
     () => {
@@ -194,6 +194,140 @@ const Positioned = (childBuilder, options = {}) => {
     () => {
       el.className = `absolute ${options.className || ""}`;
       return normalizeBuilder(childBuilder)();
+    },
+    options
+  );
+};
+
+// ==================== DragList corrigido ====================
+let __sortable_uid = 0;
+const DragList = (data, itemBuilder, options = {}) => {
+  const el = document.createElement("div");
+
+  return makeRebuildable(
+    el,
+    () => {
+      el.className = `flex flex-col gap-2 ${options.className || ""}`;
+
+      const items = data.map((item, index) => {
+        const child = itemBuilder(item, index);
+        // garante que é elemento DOM
+        if (child && child.classList) {
+          child.classList.add("cursor-move", "select-none");
+        }
+        return child;
+      });
+
+      // Inicializa ou reinicializa SortableJS
+      setTimeout(() => {
+        if (el._sortable) {
+          try { el._sortable.destroy(); } catch(e) {}
+        }
+
+        // copia opções e remove props que não fazem sentido pro Sortable direto
+        const sortableOptions = { animation: 150, ...options };
+        delete sortableOptions.className; // não é opção do Sortable
+
+        // Propriedades que podem receber múltiplas classes (tailwind)
+        const mcProps = ["chosenClass", "ghostClass", "dragClass"];
+        const extras = {};    // extras[prop] = [array de classes] ou null
+        const tokens = {};    // tokens[prop] = tokenSeguro a ser passado pro Sortable
+        const uid = (++__sortable_uid) + "_" + Math.random().toString(36).slice(2,6);
+
+        mcProps.forEach(prop => {
+          const v = options[prop];
+          if (typeof v === "string" && v.trim().includes(" ")) {
+            // split em tokens reais e cria um token seguro para o Sortable
+            extras[prop] = v.trim().split(/\s+/);
+            tokens[prop] = `${prop}_${uid}`; // single token, sem espaços
+            sortableOptions[prop] = tokens[prop];
+          } else if (typeof v === "string" && v.trim().length) {
+            extras[prop] = null;            // não precisa de tratamento extra
+            sortableOptions[prop] = v.trim();
+          } else {
+            extras[prop] = null;
+            // deixa undefined se não informado
+          }
+        });
+
+        // Preserve callbacks do usuário para encadear
+        const userCallbacks = {
+          onClone: options.onClone,
+          onChoose: options.onChoose,
+          onUnchoose: options.onUnchoose,
+          onStart: options.onStart,
+          onEnd: options.onEnd,
+          onSort: options.onSort,
+          onAdd: options.onAdd,
+          onRemove: options.onRemove
+        };
+
+        // Helpers para chamar callback do usuário se existir
+        const callUser = (name, evt) => {
+          const fn = userCallbacks[name];
+          if (typeof fn === "function") {
+            try { fn(evt); } catch (e) { console.error("erro callback user", name, e); }
+          }
+        };
+
+        // Hooks que adicionam / removem as classes "extras" (split) onde necessário
+        sortableOptions.onClone = function(evt) {
+          // clone pode receber ghostClass extras
+          try {
+            if (extras.ghostClass && evt.clone && evt.clone.classList) {
+              evt.clone.classList.add(...extras.ghostClass);
+            }
+          } catch(e) { /* ignore */ }
+          callUser("onClone", evt);
+        };
+        sortableOptions.onChoose = function(evt) {
+          try {
+            if (extras.chosenClass && evt.item && evt.item.classList) {
+              evt.item.classList.add(...extras.chosenClass);
+            }
+          } catch(e) {}
+          callUser("onChoose", evt);
+        };
+        sortableOptions.onUnchoose = function(evt) {
+          try {
+            if (extras.chosenClass && evt.item && evt.item.classList) {
+              evt.item.classList.remove(...extras.chosenClass);
+            }
+          } catch(e) {}
+          callUser("onUnchoose", evt);
+        };
+        sortableOptions.onStart = function(evt) {
+          try {
+            if (extras.dragClass && evt.item && evt.item.classList) {
+              evt.item.classList.add(...extras.dragClass);
+            }
+          } catch(e) {}
+          callUser("onStart", evt);
+        };
+        sortableOptions.onEnd = function(evt) {
+          try {
+            if (extras.dragClass && evt.item && evt.item.classList) {
+              evt.item.classList.remove(...extras.dragClass);
+            }
+            if (extras.chosenClass && evt.item && evt.item.classList) {
+              evt.item.classList.remove(...extras.chosenClass);
+            }
+            if (extras.ghostClass && evt.clone && evt.clone.classList) {
+              evt.clone.classList.remove(...extras.ghostClass);
+            }
+          } catch(e) {}
+          callUser("onEnd", evt);
+        };
+
+        // Cria o Sortable
+        try {
+          el._sortable = Sortable.create(el, sortableOptions);
+        } catch (e) {
+          console.error("Erro ao criar Sortable:", e);
+        }
+      });
+
+      return items;
     },
     options
   );
